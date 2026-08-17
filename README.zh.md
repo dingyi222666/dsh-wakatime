@@ -48,7 +48,7 @@ dsh web
   config:
     heartbeatIntervalMs: 120000  # 每项目限频间隔（默认 60000 毫秒）
     debug: true                  # 强制 DEBUG 日志（默认跟随 ~/.wakatime.cfg 的 debug=true）
-    client: web                  # --plugin 字符串中的客户端标识（默认 "dsh"）
+    client: web                  # --plugin 字符串中的客户端限定名（默认 "dsh"）
     timeoutMs: 45000             # heartbeat CLI 超时（默认 30000 毫秒）
 ```
 
@@ -95,7 +95,7 @@ brew install wakatime-cli
   得到每个 hunk 的精确增删行数（`edit`、`write`），或从参数推导（`write` 内容、`str_replace_editor` 字符串）。
 - 每个项目每分钟最多发送一次 heartbeat（状态文件位于 `~/.wakatime/dsh-wakatime/`）；
   触发时机包括聊天活动、turn 边界、会话销毁与插件卸载。
-- `--plugin` 标签形如 `dsh-<client>/<dsh 版本> dsh-wakatime/<版本>`。
+- `--plugin` 标签形如 `Deepseek Harness[-<client>]/<dsh 版本> dsh-wakatime/<版本>`。
 
 ## 开发
 

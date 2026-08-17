@@ -76,7 +76,7 @@ export function formatArgs(args: string[]): string {
 /**
  * Send one batch of heartbeats in a single `wakatime-cli` invocation.
  * @param params - heartbeats to send; the first becomes the primary entity.
- * @param pluginTag - the `--plugin` tag (`dsh-<client>/<version> dsh-wakatime/<version>`).
+ * @param pluginTag - the `--plugin` tag (`Deepseek Harness/<version> dsh-wakatime/<version>`).
  * @param timeoutMs - per-invocation timeout (default 30 seconds).
  * @returns a promise settling when the CLI child exits or is terminated.
  */

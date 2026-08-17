@@ -131,11 +131,11 @@ describe('sendHeartbeats', () => {
 })
 
 describe('buildPluginTag', () => {
-  it('uses the dsh client name for the default client', () => {
-    expect(buildPluginTag('dsh')).toMatch(/^dsh\/.+ dsh-wakatime\/.+$/)
+  it('names the harness Deepseek Harness for the default client', () => {
+    expect(buildPluginTag('dsh')).toMatch(/^Deepseek Harness\/.+ dsh-wakatime\/.+$/)
   })
 
-  it('prefixes a custom client', () => {
-    expect(buildPluginTag('web')).toMatch(/^dsh-web\/.+ dsh-wakatime\/.+$/)
+  it('suffixes a custom client', () => {
+    expect(buildPluginTag('web')).toMatch(/^Deepseek Harness-web\/.+ dsh-wakatime\/.+$/)
   })
 })

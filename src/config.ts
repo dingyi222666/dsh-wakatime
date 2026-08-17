@@ -17,7 +17,7 @@ export interface Config {
   heartbeatIntervalMs?: number
   /** Force DEBUG logging. Default: the wakatime config's `debug = true`. */
   debug?: boolean
-  /** Client identifier in the WakaTime `--plugin` tag. Default `dsh`. */
+  /** Client qualifier appended to the harness name in the WakaTime `--plugin` tag. Default `dsh`. */
   client?: string
   /** Milliseconds before a heartbeat CLI invocation is terminated. Default 30_000. */
   timeoutMs?: number
@@ -78,11 +78,11 @@ export function resolveConfig(config: Config | undefined): ResolvedConfig {
 }
 
 /**
- * The `--plugin` tag identifying dsh and this plugin to WakaTime.
- * @param client - the resolved client name (`dsh` for the default).
- * @returns a tag like `dsh/0.1.0-rc.6 dsh-wakatime/0.1.0`.
+ * The `--plugin` tag identifying DeepSeek Harness and this plugin to WakaTime.
+ * @param client - the resolved client name (`dsh` for the default harness surface).
+ * @returns a tag like `Deepseek Harness/0.1.0-rc.6 dsh-wakatime/0.1.1`.
  */
 export function buildPluginTag(client: string): string {
-  const clientTag = client === 'dsh' ? 'dsh' : `dsh-${client}`
+  const clientTag = client === 'dsh' ? 'Deepseek Harness' : `Deepseek Harness-${client}`
   return `${clientTag}/${dshVersion} dsh-wakatime/${pluginVersion}`
 }

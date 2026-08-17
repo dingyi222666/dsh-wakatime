@@ -49,7 +49,7 @@ same id (`wakatime`) in your profile's user patch layer
   config:
     heartbeatIntervalMs: 120000  # rate limit per project (default 60000)
     debug: true                  # force DEBUG logging (default: ~/.wakatime.cfg debug=true)
-    client: web                  # client tag in the --plugin string (default "dsh")
+    client: web                  # client qualifier in the --plugin string (default "dsh")
     timeoutMs: 45000             # heartbeat CLI timeout (default 30000)
 ```
 
@@ -118,7 +118,7 @@ flowchart TB
 - Heartbeats are sent at most once per minute per project (state file under
   `~/.wakatime/dsh-wakatime/`), on chat activity, turn boundaries, session
   disposal, and plugin teardown.
-- The `--plugin` tag reports `dsh-<client>/<dsh version> dsh-wakatime/<version>`.
+- The `--plugin` tag reports `Deepseek Harness[-<client>]/<dsh version> dsh-wakatime/<version>`.
 
 ## Development
 
