@@ -1,0 +1,7 @@
+# The @dingyi222666/dsh-wakatime bundle patch: one host-side plugin row
+# inserted into any profile composition (web, headless, …). Applied after the
+# profile's own bundle layers; users override behavior by re-declaring the
+# row's config in their own patch layer.
+- insert:
+    - id: wakatime
+      name: '@dingyi222666/dsh-wakatime'
