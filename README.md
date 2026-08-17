@@ -10,7 +10,7 @@ WakaTime plugin for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deep
 ## Install
 
 ```sh
-# Install from npm (requires dsh >= 0.1.0-rc.6)
+# Install from npm (requires dsh >= 0.1.0-rc.7)
 dsh plugin --profile web add @dingyi222666/dsh-wakatime
 # Restart dsh web for it to take effect
 dsh web
