@@ -1,8 +1,9 @@
 /**
  * Extract WakaTime file-change records from dsh `tool/call` + `tool/result`
- * session events. The fs tools (`edit`, `write`, `read`) and the optional
- * `str_replace_editor` carry the affected file in their call arguments
- * (`file_path` / `path`); `edit` and `write` results attach a private `meta`
+ * session events. The fs tools (`edit`, `write`, `read`, `read_image`) and
+ * the optional `str_replace_editor` carry the affected file in their call
+ * arguments (`file_path` / `path`); `edit` and `write` results attach a
+ * private `meta`
  * payload of applied diff hunks (`{ diffs: FileDiff[] }`) that yields exact
  * per-hunk line counts after trimming the shared context lines.
  * @module dsh-wakatime/changes
@@ -123,7 +124,8 @@ export function extractFileChanges(
       // A create (or identical overwrite) has no meta: charge the content lines.
       return [{ file, additions: countLines(args.content as string | undefined), deletions: 0, isWrite: true }]
     }
-    case 'read': {
+    case 'read':
+    case 'read_image': {
       const file = args.file_path
       if (typeof file !== 'string' || file.length === 0) return []
       return [{ file, additions: 0, deletions: 0, isWrite: false }]

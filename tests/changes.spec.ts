@@ -74,6 +74,12 @@ describe('extractFileChanges', () => {
     expect(changes).toEqual([{ file: '/repo/a.ts', additions: 0, deletions: 0, isWrite: false }])
   })
 
+  it('tracks read_image reads with zero line changes', () => {
+    const changes = extractFileChanges('read_image', { file_path: '/repo/logo.png' }, undefined)
+    expect(changes).toEqual([{ file: '/repo/logo.png', additions: 0, deletions: 0, isWrite: false }])
+    expect(extractFileChanges('read_image', {}, undefined)).toEqual([])
+  })
+
   it('handles str_replace_editor commands', () => {
     expect(extractFileChanges('str_replace_editor', { command: 'view', path: '/repo/a.ts' }, undefined))
       .toEqual([{ file: '/repo/a.ts', additions: 0, deletions: 0, isWrite: false }])

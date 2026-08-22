@@ -10,7 +10,7 @@ English | [中文](README.zh.md)
 ## 安装
 
 ```sh
-# 从 npm 安装（需要 dsh >= 0.1.0-rc.7）
+# 从 npm 安装（需要 dsh >= 0.1.1-rc.2）
 dsh plugin --profile web add @dingyi222666/dsh-wakatime
 # 重启 dsh web 生效
 dsh web
@@ -57,7 +57,7 @@ dsh web
 ## 功能
 
 - **自动管理 CLI** —— 自动下载并更新 `wakatime-cli`；检测到全局安装（`brew install wakatime-cli`）时直接使用
-- **细粒度文件追踪** —— 追踪 agent 执行的文件操作：`edit`、`write`、`read`，以及 `str_replace_editor`（`view`/`create`/`str_replace`/`insert`）
+- **细粒度文件追踪** —— 追踪 agent 执行的文件操作：`edit`、`write`、`read`、`read_image`，以及 `str_replace_editor`（`view`/`create`/`str_replace`/`insert`）
 - **AI 编码指标** —— 发送 `--ai-line-changes` 供 WakaTime AI 编码分析使用；行数根据 fs 工具的 diff hunk 精确计算（上下文行已剔除）
 - **限频 heartbeat** —— 每个项目每分钟最多 1 次，状态持久化到磁盘，多个 dsh 进程共享配额
 - **会话生命周期** —— 会话销毁与插件树卸载时强制冲刷待发送 heartbeat，单次 `dsh --profile headless` 运行也能上报

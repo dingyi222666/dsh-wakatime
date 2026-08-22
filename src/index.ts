@@ -2,7 +2,8 @@
  * dsh-wakatime: WakaTime plugin for DeepSeek Harness (dsh).
  *
  * Tracks the file operations the agent performs (`edit`, `write`, `read`,
- * `str_replace_editor`) through the session event firehose, batches the
+ * `read_image`, `str_replace_editor`) through the session event firehose,
+ * batches the
  * resulting line changes per project, and sends rate-limited heartbeats to
  * WakaTime through `wakatime-cli` (auto-installed when missing). A final
  * forced flush runs when a session is disposed and when the plugin tree

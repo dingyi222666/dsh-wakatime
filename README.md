@@ -10,7 +10,7 @@ WakaTime plugin for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deep
 ## Install
 
 ```sh
-# Install from npm (requires dsh >= 0.1.0-rc.7)
+# Install from npm (requires dsh >= 0.1.1-rc.2)
 dsh plugin --profile web add @dingyi222666/dsh-wakatime
 # Restart dsh web for it to take effect
 dsh web
@@ -58,7 +58,7 @@ All fields are optional and validated by a schemastery schema at load.
 ## Features
 
 - **Automatic CLI management** — downloads and updates `wakatime-cli` automatically, or uses a global install (`brew install wakatime-cli`)
-- **Detailed file tracking** — tracks file operations the agent performs: `edit`, `write`, `read`, and `str_replace_editor` (`view`/`create`/`str_replace`/`insert`)
+- **Detailed file tracking** — tracks file operations the agent performs: `edit`, `write`, `read`, `read_image`, and `str_replace_editor` (`view`/`create`/`str_replace`/`insert`)
 - **AI coding metrics** — sends `--ai-line-changes` for WakaTime's AI coding analytics, computed exactly from the fs tools' diff hunks (context lines excluded)
 - **Rate-limited heartbeats** — 1 per minute per project, persisted to disk so parallel dsh processes share the budget
 - **Session lifecycle** — force-flushes pending heartbeats when a session is disposed and when the plugin tree tears down, so one-shot `dsh --profile headless` runs still report their activity
