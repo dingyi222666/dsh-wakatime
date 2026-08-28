@@ -10,7 +10,22 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "allowImportingTsExtensions": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      // 0.1.2-alpha.1 is not yet on npm: typecheck against the alpha-built
+      // types in the local harness checkout (../test-dingyi222666) until the
+      // alpha lands, then drop these paths and bump devDependencies.
+      "@deepseek-ai/cordis": [
+        "../test-dingyi222666/vendor/cordis/lib/types"
+      ],
+      "@deepseek-ai/dsh-session": [
+        "../test-dingyi222666/packages/core/session/lib/types"
+      ],
+      "@deepseek-ai/schemastery": [
+        "../test-dingyi222666/vendor/schemastery/lib/types"
+      ]
+    }
   },
   "include": ["src", "tests"]
 }
