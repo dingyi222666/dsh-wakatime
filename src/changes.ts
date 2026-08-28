@@ -76,9 +76,13 @@ export function countLineChanges(
   }
 }
 
-/** Count the non-empty lines of a string (a write's content when no hunk exists). */
-function countLines(text: string | undefined): number {
-  if (text === undefined || text.length === 0) return 0
+/**
+ * Count the non-empty lines of a string (a write's content when no hunk
+ * exists). `null` counts as omitted: `str_replace_editor` (dsh >= 0.1.2-alpha)
+ * accepts `null` placeholders for parameters a command does not use.
+ */
+function countLines(text: string | null | undefined): number {
+  if (text == null || text.length === 0) return 0
   return text.split('\n').length
 }
 
@@ -122,7 +126,7 @@ export function extractFileChanges(
         })
       }
       // A create (or identical overwrite) has no meta: charge the content lines.
-      return [{ file, additions: countLines(args.content as string | undefined), deletions: 0, isWrite: true }]
+      return [{ file, additions: countLines(args.content as string | null | undefined), deletions: 0, isWrite: true }]
     }
     case 'read':
     case 'read_image': {
@@ -138,18 +142,18 @@ export function extractFileChanges(
         return [{ file, additions: 0, deletions: 0, isWrite: false }]
       }
       if (command === 'create') {
-        return [{ file, additions: countLines(args.file_text as string | undefined), deletions: 0, isWrite: true }]
+        return [{ file, additions: countLines(args.file_text as string | null | undefined), deletions: 0, isWrite: true }]
       }
       if (command === 'str_replace') {
         return [{
           file,
-          additions: countLines(args.new_str as string | undefined),
-          deletions: countLines(args.old_str as string | undefined),
+          additions: countLines(args.new_str as string | null | undefined),
+          deletions: countLines(args.old_str as string | null | undefined),
           isWrite: false,
         }]
       }
       if (command === 'insert') {
-        return [{ file, additions: countLines(args.new_str as string | undefined), deletions: 0, isWrite: false }]
+        return [{ file, additions: countLines(args.new_str as string | null | undefined), deletions: 0, isWrite: false }]
       }
       return []
     }

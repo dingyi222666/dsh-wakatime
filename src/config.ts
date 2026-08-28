@@ -80,7 +80,7 @@ export function resolveConfig(config: Config | undefined): ResolvedConfig {
 /**
  * The `--plugin` tag identifying DeepSeek Harness and this plugin to WakaTime.
  * @param client - the resolved client name (`dsh` for the default harness surface).
- * @returns a tag like `Deepseek Harness/0.1.1-rc.2 dsh-wakatime/0.1.3`.
+ * @returns a tag like `Deepseek Harness/0.1.2-alpha.1 dsh-wakatime/0.1.4`.
  */
 export function buildPluginTag(client: string): string {
   const clientTag = client === 'dsh' ? 'Deepseek Harness' : `Deepseek Harness-${client}`

@@ -91,6 +91,19 @@ describe('extractFileChanges', () => {
       .toEqual([{ file: '/repo/e.ts', additions: 1, deletions: 0, isWrite: false }])
   })
 
+  it('treats null str_replace_editor params as omitted (dsh >= 0.1.2-alpha)', () => {
+    // A null placeholder for a parameter a command does not use must not crash
+    // the line counter; it counts as zero lines.
+    expect(extractFileChanges('str_replace_editor', { command: 'str_replace', path: '/repo/d.ts', old_str: 'old', new_str: null }, undefined))
+      .toEqual([{ file: '/repo/d.ts', additions: 0, deletions: 1, isWrite: false }])
+    expect(extractFileChanges('str_replace_editor', { command: 'create', path: '/repo/c.ts', file_text: null }, undefined))
+      .toEqual([{ file: '/repo/c.ts', additions: 0, deletions: 0, isWrite: true }])
+    expect(extractFileChanges('str_replace_editor', { command: 'insert', path: '/repo/e.ts', new_str: null }, undefined))
+      .toEqual([{ file: '/repo/e.ts', additions: 0, deletions: 0, isWrite: false }])
+    expect(extractFileChanges('write', { file_path: '/repo/w.ts', content: null }, undefined))
+      .toEqual([{ file: '/repo/w.ts', additions: 0, deletions: 0, isWrite: true }])
+  })
+
   it('ignores untracked tools', () => {
     expect(extractFileChanges('bash', { command: 'ls' }, undefined)).toEqual([])
     expect(extractFileChanges('glob', { pattern: '**/*.ts' }, undefined)).toEqual([])
