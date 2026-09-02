@@ -10,7 +10,7 @@ English | [中文](README.zh.md)
 ## 安装
 
 ```sh
-# 从 npm 安装（需要 dsh >= 0.1.2-alpha.2）
+# 从 npm 安装（需要 dsh >= 0.1.2-alpha.5）
 dsh plugin --profile web add @dingyi222666/dsh-wakatime
 # 重启 dsh web 生效
 dsh web
