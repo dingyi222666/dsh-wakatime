@@ -3,12 +3,16 @@
  *
  * Tracks the file operations the agent performs (`edit`, `write`, `read`,
  * `read_image`, `str_replace_editor`) through the session event firehose,
- * batches the
- * resulting line changes per project, and sends rate-limited heartbeats to
- * WakaTime through `wakatime-cli` (auto-installed when missing). A final
- * forced flush runs when a session is disposed and when the plugin tree
- * tears down, so one-shot `dsh --profile headless` runs still report their
- * activity.
+ * batches the resulting line changes per project, and sends rate-limited
+ * heartbeats to WakaTime through `wakatime-cli` (auto-installed when
+ * missing). Since dsh 0.1.3-alpha.1 the fs tools attach their resolved path
+ * and diff hunks to the durable `tool/result` meta, which this plugin prefers
+ * over raw call arguments. Live agent events (`agent/status`, the
+ * `agent/assistant-stream` firehose) drive near-real-time activity heartbeats
+ * while a long turn streams, instead of waiting for the durable settlement.
+ * A final forced flush runs when a session is disposed and when the plugin
+ * tree tears down, so one-shot `dsh --profile headless` runs still report
+ * their activity.
  *
  * Loaded as a bundle plugin: `dsh plugin --profile web add <this package>`.
  * @module dsh-wakatime
@@ -17,6 +21,9 @@
 import * as fs from 'node:fs'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+// Type-only: pulls in the @deepseek-ai/dsh-agent declaration merges that type
+// the scoped `agent/status` and `agent/assistant-stream` cordis events.
+import type {} from '@deepseek-ai/dsh-agent'
 import { Config, name, resolveConfig, buildPluginTag, type Config as ConfigShape } from './config.ts'
 import { extractFileChanges, resolveEntityPath, type FileChange } from './changes.ts'
 import { sendHeartbeats, flushHeartbeats, type HeartbeatParams } from './heartbeat.ts'
@@ -50,7 +57,7 @@ function readDebugFromWakatimeConfig(): boolean {
   }
 }
 
-/** Plugin entry: subscribe to session events and dispatch heartbeats. */
+/** Plugin entry: subscribe to session + agent events and dispatch heartbeats. */
 export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
   const config = resolveConfig(rawConfig)
   const cfgDebug = readDebugFromWakatimeConfig()
@@ -68,6 +75,10 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
 
   const pendingCalls = new Map<string, PendingCall>()
   const changesByProject = new Map<string, Map<string, FileChange>>()
+  /** Per project folder, the most recent file the agent touched (live-heartbeat entity). */
+  const lastEntityByProject = new Map<string, string>()
+  /** In-memory gate so per-token `agent/assistant-stream` frames do not hit disk each chunk. */
+  const lastLiveHeartbeatAt = new Map<string, number>()
 
   /** The project folder for a session: its header cwd, else the process cwd. */
   const projectFolderOf = (session: Session): string => session.header.cwd ?? process.cwd()
@@ -87,34 +98,46 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
       deletions: existing.deletions + change.deletions,
       isWrite: existing.isWrite || change.isWrite,
     })
+    // Tracked operations — including reads — establish the project's current
+    // entity, used by live activity heartbeats between durable settlements.
+    lastEntityByProject.set(projectFolder, change.file)
   }
 
   /**
    * Send the pending heartbeats for one project. Rate-limited unless `force`;
-   * a forced flush also awaits every in-flight CLI invocation.
+   * a forced flush also awaits every in-flight CLI invocation. With
+   * `activityOnly`, a project whose change buffer is empty instead sends one
+   * zero-change heartbeat for its last touched entity — this is what turns
+   * live agent activity (streaming, status transitions) into WakaTime time.
    */
-  const processHeartbeat = async (projectFolder: string, force: boolean): Promise<void> => {
+  const processHeartbeat = async (projectFolder: string, force: boolean, activityOnly = false): Promise<void> => {
     const stateFile = stateFileFor(projectFolder)
     if (!shouldSendHeartbeat(stateFile, config.heartbeatIntervalMs, force)) {
       logger.debug(`Skipping heartbeat for ${projectFolder} (rate limited)`)
       return
     }
     const changes = changesByProject.get(projectFolder)
-    if (changes === undefined || changes.size === 0) {
+    const activityEntity = activityOnly ? lastEntityByProject.get(projectFolder) : undefined
+    const hasChanges = changes !== undefined && changes.size > 0
+    if (!hasChanges && activityEntity === undefined) {
       if (force) await flushHeartbeats()
       return
     }
     const heartbeats: HeartbeatParams[] = []
-    for (const [file, info] of changes) {
-      heartbeats.push({
-        entity: file,
-        projectFolder,
-        lineChanges: info.additions - info.deletions,
-        category: 'ai coding',
-        isWrite: info.isWrite,
-      })
+    if (hasChanges) {
+      for (const [file, info] of changes!) {
+        heartbeats.push({
+          entity: file,
+          projectFolder,
+          lineChanges: info.additions - info.deletions,
+          category: 'ai coding',
+          isWrite: info.isWrite,
+        })
+      }
+      changes!.clear()
+    } else {
+      heartbeats.push({ entity: activityEntity!, projectFolder, category: 'ai coding' })
     }
-    changes.clear()
     updateLastHeartbeat(stateFile)
     logger.debug(`Sending ${heartbeats.length} heartbeat(s) for ${projectFolder}`)
     void sendHeartbeats(heartbeats, pluginTag, config.timeoutMs)
@@ -126,6 +149,21 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
     for (const projectFolder of changesByProject.keys()) {
       await processHeartbeat(projectFolder, true)
     }
+  }
+
+  /**
+   * Live activity heartbeat, rate-limited on the same per-project budget as
+   * the durable path. Chunk frames fire per token, so an in-memory gate
+   * absorbs the storm; only when the interval has elapsed is the shared disk
+   * state consulted.
+   */
+  const maybeSendLiveHeartbeat = (session: Session): void => {
+    const projectFolder = projectFolderOf(session)
+    if (lastEntityByProject.get(projectFolder) === undefined) return
+    const now = Date.now()
+    if (now - (lastLiveHeartbeatAt.get(projectFolder) ?? 0) < config.heartbeatIntervalMs) return
+    lastLiveHeartbeatAt.set(projectFolder, now)
+    void processHeartbeat(projectFolder, false, true)
   }
 
   ctx.on('session/event', (session, event: SessionEvent) => {
@@ -163,9 +201,12 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
       }
       case 'user/message':
       case 'assistant/message':
+      case 'assistant/attempt':
       case 'turn/end': {
-        // Chat activity and turn boundaries are natural checkpoints: send any
-        // pending changes, subject to the per-project rate limit.
+        // Chat activity, committed model attempts (0.1.3-alpha.1: a failed or
+        // retried attempt that reached settlement without a surface message),
+        // and turn boundaries are natural checkpoints: send any pending
+        // changes, subject to the per-project rate limit.
         const changes = changesByProject.get(projectFolder)
         if (changes !== undefined && changes.size > 0) {
           void processHeartbeat(projectFolder, false)
@@ -180,6 +221,15 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
 
   ctx.on('session/disposed', (session) => {
     void processHeartbeat(projectFolderOf(session), true)
+  })
+
+  // Live agent events (dsh >= 0.1.3-alpha.1): activity heartbeats flow while
+  // a turn streams rather than waiting for the durable assistant settlement.
+  ctx.on('agent/status', ({ agent, status }) => {
+    if (status === 'running') maybeSendLiveHeartbeat(agent.session)
+  })
+  ctx.on('agent/assistant-stream', ({ agent, frame }) => {
+    if (frame.type === 'chunk') maybeSendLiveHeartbeat(agent.session)
   })
 
   // App teardown: flush whatever is still pending (headless runs dispose the

@@ -10,7 +10,7 @@ WakaTime plugin for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deep
 ## Install
 
 ```sh
-# Install from npm (requires dsh >= 0.1.2-alpha.5)
+# Install from npm (requires dsh >= 0.1.3-alpha.1)
 dsh plugin --profile web add @dingyi222666/dsh-wakatime
 # Restart dsh web for it to take effect
 dsh web
@@ -59,8 +59,10 @@ All fields are optional and validated by a schemastery schema at load.
 
 - **Automatic CLI management** — downloads and updates `wakatime-cli` automatically, or uses a global install (`brew install wakatime-cli`)
 - **Detailed file tracking** — tracks file operations the agent performs: `edit`, `write`, `read`, `read_image`, and `str_replace_editor` (`view`/`create`/`str_replace`/`insert`)
+- **Resolved-path accuracy (dsh 0.1.3-alpha.1)** — reads the fs tools' durable `tool/result` `meta`: resolved (sandbox-aware) entity paths and exact diff hunks win over raw call arguments when present
 - **AI coding metrics** — sends `--ai-line-changes` for WakaTime's AI coding analytics, computed exactly from the fs tools' diff hunks (context lines excluded)
-- **Rate-limited heartbeats** — 1 per minute per project, persisted to disk so parallel dsh processes share the budget
+- **Live activity heartbeats (dsh 0.1.3-alpha.1)** — `agent/status` transitions and the `agent/assistant-stream` firehose heartbeat the current file in near real time while a long turn streams, instead of waiting for the durable settlement
+- **Rate-limited heartbeats** — 1 per minute per project, persisted to disk so parallel dsh processes share the budget (durable changes and live activity draw from the same budget)
 - **Session lifecycle** — force-flushes pending heartbeats when a session is disposed and when the plugin tree tears down, so one-shot `dsh --profile headless` runs still report their activity
 - **Batch tool support** — multiple files in one edit are sent in a single `wakatime-cli` invocation via `--extra-heartbeats`
 - **Zero runtime dependencies** — the built plugin imports only Node builtins plus the `@deepseek-ai/*` peers the host already provides
@@ -96,28 +98,34 @@ The plugin subscribes to dsh's session event firehose (`session/event`):
 ```mermaid
 flowchart TB
     subgraph dsh["DeepSeek Harness"]
-        A[Agent Loop] --> B[tool/call + tool/result events]
-        C[Chat Activity<br/>user/message, assistant/message] --> D[Session Events<br/>turn/end, session/disposed]
+        A[Agent Loop] --> B[tool/call + tool/result events<br/>(meta: resolved path + diff hunks)]
+        C[Live agent events<br/>agent/status, agent/assistant-stream] --> D[Activity]
+        C2[Chat Activity<br/>user/message, assistant/message, assistant/attempt] --> D
+        B --> D
+        D --> E[Session Events<br/>turn/end, session/disposed]
     end
 
     subgraph Plugin["dsh-wakatime"]
-        B --> E[Join callId: extract file<br/>path + line changes from<br/>args and fs diff meta]
-        E --> F[Per-project pending<br/>changes]
-        C --> G[Rate-limited<br/>heartbeat batch]
-        D --> H[Final force flush]
-        F --> G
-        G --> I[wakatime-cli<br/>--ai-line-changes<br/>--extra-heartbeats]
-        H --> I
+        B --> F[Join callId: extract file<br/>path + line changes from<br/>meta and fs diff hunks]
+        F --> G[Per-project pending<br/>changes + last entity]
+        C --> H[Rate-limited<br/>heartbeat batch]
+        G --> H
+        E --> I[Final force flush]
+        H --> J[wakatime-cli<br/>--ai-line-changes<br/>--extra-heartbeats]
+        I --> J
     end
 ```
 
 - `tool/call` records the tool name and parsed arguments by `callId`; `tool/result`
-  matches it back and reads the fs tools' private `meta` diff hunks for exact
-  per-hunk line counts (`edit`, `write`), or derives them from the arguments
-  (`write` content, `str_replace_editor` strings).
+  matches it back and reads the fs tools' durable `meta` payload — resolved
+  entity paths (`read`, `read_image`) and diff hunks (`edit`, `write`) — for
+  exact per-hunk line counts, falling back to the call arguments when a host
+  attaches no meta (`write` content, `str_replace_editor` strings).
 - Heartbeats are sent at most once per minute per project (state file under
-  `~/.wakatime/dsh-wakatime/`), on chat activity, turn boundaries, session
-  disposal, and plugin teardown.
+  `~/.wakatime/dsh-wakatime/`), on chat activity, tool results, committed model
+  settlements (including message-less `assistant/attempt` records in dsh
+  0.1.3-alpha.1), live agent activity (`agent/status`, `agent/assistant-stream`),
+  turn boundaries, session disposal, and plugin teardown.
 - The `--plugin` tag reports `Deepseek Harness[-<client>]/<dsh version> dsh-wakatime/<version>`.
 
 ## Development
@@ -144,12 +152,16 @@ Layout:
 ## Known Limitations
 
 - Tool calls executed inside sandboxed/remote filesystems are tracked by their
-  model-visible `file_path` arguments; paths the sandbox resolves differently
-  may land as project-relative entities.
+  model-visible `file_path` arguments unless the tool/result `meta` carries a
+  resolved absolute path (dsh 0.1.3-alpha.1 fs tools do); paths the sandbox
+  resolves differently may land as project-relative entities.
 - `bash` commands are not attributed to files (they can touch anything).
 - The dsh host version in the `--plugin` tag is `unknown` when the
   `@deepseek-ai/dsh` package cannot be resolved from the plugin's location
   (e.g. an npm install without the dev dependency present).
+- The `@deepseek-ai/dsh-session`/`@deepseek-ai/dsh-agent` peer ranges start at
+  `0.1.3-alpha.1`; older hosts run the tracking paths but get no live agent
+  activity heartbeats.
 
 ## License
 

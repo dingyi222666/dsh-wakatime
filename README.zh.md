@@ -10,7 +10,7 @@ English | [中文](README.zh.md)
 ## 安装
 
 ```sh
-# 从 npm 安装（需要 dsh >= 0.1.2-alpha.5）
+# 从 npm 安装（需要 dsh >= 0.1.3-alpha.1）
 dsh plugin --profile web add @dingyi222666/dsh-wakatime
 # 重启 dsh web 生效
 dsh web
@@ -58,8 +58,10 @@ dsh web
 
 - **自动管理 CLI** —— 自动下载并更新 `wakatime-cli`；检测到全局安装（`brew install wakatime-cli`）时直接使用
 - **细粒度文件追踪** —— 追踪 agent 执行的文件操作：`edit`、`write`、`read`、`read_image`，以及 `str_replace_editor`（`view`/`create`/`str_replace`/`insert`）
+- **解析路径准确性（dsh 0.1.3-alpha.1）** —— 优先读取 fs 工具持久化在 `tool/result` `meta` 中的信息：沙箱解析后的实际路径与精确 diff hunk；没有 meta 时回退到调用参数
 - **AI 编码指标** —— 发送 `--ai-line-changes` 供 WakaTime AI 编码分析使用；行数根据 fs 工具的 diff hunk 精确计算（上下文行已剔除）
-- **限频 heartbeat** —— 每个项目每分钟最多 1 次，状态持久化到磁盘，多个 dsh 进程共享配额
+- **实时活动 heartbeat（dsh 0.1.3-alpha.1）** —— 长时间回合流式输出期间，`agent/status` 状态切换与 `agent/assistant-stream` 事件流会以接近实时的节奏对当前文件发送 heartbeat，无需等待持久化结算事件
+- **限频 heartbeat** —— 每个项目每分钟最多 1 次，状态持久化到磁盘，多个 dsh 进程共享配额（持久化变更与实时活动共用同一配额）
 - **会话生命周期** —— 会话销毁与插件树卸载时强制冲刷待发送 heartbeat，单次 `dsh --profile headless` 运行也能上报
 - **批量工具支持** —— 一次编辑涉及多个文件时，通过 `--extra-heartbeats` 在单次 `wakatime-cli` 调用中发送
 - **零运行时依赖** —— 构建产物只依赖 Node 内置模块与宿主已提供的 `@deepseek-ai/*` peer 包
@@ -91,10 +93,11 @@ brew install wakatime-cli
 
 插件订阅 dsh 的会话事件流（`session/event`）：
 
-- `tool/call` 按 `callId` 记录工具名与解析后的参数；`tool/result` 回查并读取 fs 工具私有的 `meta` diff hunk，
-  得到每个 hunk 的精确增删行数（`edit`、`write`），或从参数推导（`write` 内容、`str_replace_editor` 字符串）。
+- `tool/call` 按 `callId` 记录工具名与解析后的参数；`tool/result` 回查并读取 fs 工具持久化的 `meta` 载荷 —— 解析后的实体路径（`read`、`read_image`）与 diff hunk（`edit`、`write`），
+  得到每个 hunk 的精确增删行数；宿主未附加 meta 时回退到参数推导（`write` 内容、`str_replace_editor` 字符串）。
 - 每个项目每分钟最多发送一次 heartbeat（状态文件位于 `~/.wakatime/dsh-wakatime/`）；
-  触发时机包括聊天活动、turn 边界、会话销毁与插件卸载。
+  触发时机包括聊天活动、工具结果、已提交的模型结算（含 dsh 0.1.3-alpha.1 中无消息的 `assistant/attempt` 记录）、
+  实时 agent 活动（`agent/status`、`agent/assistant-stream`）、turn 边界、会话销毁与插件卸载。
 - `--plugin` 标签形如 `Deepseek Harness[-<client>]/<dsh 版本> dsh-wakatime/<版本>`。
 
 ## 开发
@@ -119,11 +122,13 @@ pnpm test            # vitest：changes、state、heartbeat、插件接线
 
 ## 已知限制
 
-- 沙箱/远程文件系统中的工具调用按其模型可见的 `file_path` 参数追踪；解析路径与沙箱不一致时可能
+- 沙箱/远程文件系统中的工具调用按其模型可见的 `file_path` 参数追踪，除非 `tool/result` 的 `meta` 携带解析后的绝对路径（dsh 0.1.3-alpha.1 的 fs 工具会携带）；解析路径与沙箱不一致时可能
   以项目相对路径记录。
 - `bash` 命令不归因到具体文件（可能改动任意内容）。
 - 当 `@deepseek-ai/dsh` 无法从插件位置解析时（例如 npm 安装缺少 dev 依赖），`--plugin` 标签中的
   dsh 版本显示为 `unknown`。
+- `@deepseek-ai/dsh-session`/`@deepseek-ai/dsh-agent` 的 peer 范围从 `0.1.3-alpha.1` 起；更老的宿主仍能运行
+  追踪路径，但没有实时 agent 活动 heartbeat。
 
 ## 许可证
 
