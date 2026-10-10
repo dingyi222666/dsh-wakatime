@@ -82,6 +82,7 @@ All fields are optional and validated by a schemastery schema at load.
 - **Detailed file tracking** — tracks file operations the agent performs: `edit`, `write`, `read`, `read_image`, and `str_replace_editor` (`view`/`create`/`str_replace`/`insert`)
 - **Resolved-path accuracy (dsh 0.1.3-alpha.1)** — reads the fs tools' durable `tool/result` `meta`: resolved (sandbox-aware) entity paths and exact diff hunks win over raw call arguments when present
 - **Exact write outcomes (dsh 0.1.7-alpha.1)** — the `write` result's `operation` stamp (`create`/`update`) distinguishes a created file (content lines charged) from an unchanged overwrite (zero line changes, heartbeat only)
+- **Working-directory aware (dsh 0.2.1-alpha.2)** — follows the session's committed `working-directory/change` records, so heartbeats, `--project-folder`, relative-path resolution, and the per-project rate limit retarget when the agent changes its working directory
 - **AI coding metrics** — sends `--ai-line-changes` for WakaTime's AI coding analytics, computed exactly from the fs tools' diff hunks (context lines excluded)
 - **Live activity heartbeats (dsh 0.1.3-alpha.1)** — `agent/status` transitions and the `agent/assistant-stream` firehose heartbeat the current file in near real time while a long turn streams, instead of waiting for the durable settlement
 - **Rate-limited heartbeats** — 1 per minute per project, persisted to disk so parallel dsh processes share the budget (durable changes and live activity draw from the same budget)
@@ -152,6 +153,9 @@ flowchart TB
   settlements (including message-less `assistant/attempt` records in dsh
   0.1.3-alpha.1), live agent activity (`agent/status`, `agent/assistant-stream`),
   turn boundaries, session disposal, and plugin teardown.
+- The project folder starts at the session header cwd and follows committed
+  `working-directory/change` records (dsh 0.2.1-alpha.2), matching the directory
+  the fs tools resolve against; each folder keeps its own rate-limit budget.
 - The `--plugin` tag reports `Deepseek Harness[-<client>]/<dsh version> dsh-wakatime/<version>`.
 
 ## Development

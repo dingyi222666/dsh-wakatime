@@ -11,8 +11,10 @@
  *   also stamps `operation: 'create' | 'update'`, which tells an empty hunk
  *   list of a create (charge the content) from one of an unchanged overwrite
  *   (charge nothing);
- * - `read` / `read_image` → `{ path: <resolved display path>, … }` — the
- *   authoritative (sandbox-resolved) entity path.
+ * - `read` / `read_image` → `{ path: <canonical absolute path>, … }` — the
+ *   authoritative entity path. Since dsh 0.2.1-alpha.2 every fs tool stamps
+ *   that canonical path (and uses it inside the diff hunks too), so the meta
+ *   path is preferred whenever it is absolute.
  *
  * Meta is preferred over raw arguments whenever it carries more information;
  * the argument-derived fallbacks keep older hosts (meta-less results) and

@@ -12,7 +12,10 @@
  * while a long turn streams, instead of waiting for the durable settlement.
  * A final forced flush runs when a session is disposed and when the plugin
  * tree tears down, so one-shot `dsh --profile headless` runs still report
- * their activity.
+ * their activity. Since dsh 0.2.1-alpha.2 the plugin also follows the session's
+ * effective working directory (`working-directory/change` records), so a
+ * directory change retargets heartbeats, `--project-folder`, and the shared
+ * per-project rate limit.
  *
  * Loaded as a bundle plugin: `dsh plugin --profile web add <this package>`.
  * @module dsh-wakatime
@@ -79,9 +82,19 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
   const lastEntityByProject = new Map<string, string>()
   /** In-memory gate so per-token `agent/assistant-stream` frames do not hit disk each chunk. */
   const lastLiveHeartbeatAt = new Map<string, number>()
+  /**
+   * Effective working directory per session. The immutable header cwd is the
+   * starting point; committed `working-directory/change` records (dsh >=
+   * 0.2.1-alpha.2) retarget it, and the fs tools resolve against the same value.
+   */
+  const workingDirectoryBySession = new WeakMap<Session, string>()
 
-  /** The project folder for a session: its header cwd, else the process cwd. */
-  const projectFolderOf = (session: Session): string => session.header.cwd ?? process.cwd()
+  /**
+   * The project folder for a session: its current working directory (the header
+   * cwd until a `working-directory/change` record arrives), else the process cwd.
+   */
+  const projectFolderOf = (session: Session): string =>
+    workingDirectoryBySession.get(session) ?? session.header.cwd ?? process.cwd()
 
   /** Merge one change into the project's pending map (aggregating per file). */
   const trackChange = (projectFolder: string, change: FileChange): void => {
@@ -217,9 +230,20 @@ export function apply(ctx: Context, rawConfig: ConfigShape | undefined): void {
         }
         break
       }
-      default:
-        // Merge-extensible session events: non-tracking records are ignored.
+      default: {
+        // A committed working-directory change (dsh >= 0.2.1-alpha.2) retargets
+        // the session's later activity: the fs tools resolve against the new
+        // directory, so heartbeats must follow it instead of the header cwd.
+        // Read leniently (plain string comparison) so the plugin also runs on
+        // hosts without the working-directory package.
+        const record = event as { type: string; data?: { cwd?: unknown } }
+        if (record.type === 'working-directory/change') {
+          const cwd = record.data?.cwd
+          if (typeof cwd === 'string' && cwd.length > 0) workingDirectoryBySession.set(session, cwd)
+        }
+        // Every other merge-extensible session event is a non-tracking record.
         break
+      }
     }
   })
 

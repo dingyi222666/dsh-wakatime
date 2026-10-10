@@ -74,6 +74,7 @@ dsh web
 - **细粒度文件追踪** —— 追踪 agent 执行的文件操作：`edit`、`write`、`read`、`read_image`，以及 `str_replace_editor`（`view`/`create`/`str_replace`/`insert`）
 - **解析路径准确性（dsh 0.1.3-alpha.1）** —— 优先读取 fs 工具持久化在 `tool/result` `meta` 中的信息：沙箱解析后的实际路径与精确 diff hunk；没有 meta 时回退到调用参数
 - **精确的 write 结果语义（dsh 0.1.7-alpha.1）** —— `write` 结果新增 `operation`（`create`/`update`）标记：新建文件按内容行数计费，内容未变的覆写记 0 行变化（只发心跳）
+- **跟随工作目录（dsh 0.2.1-alpha.2）** —— 跟随会话已提交的 `working-directory/change` 记录：切换工作目录后，heartbeat 的实体、`--project-folder`、相对路径解析与每项目限频配额都会随之切换
 - **AI 编码指标** —— 发送 `--ai-line-changes` 供 WakaTime AI 编码分析使用；行数根据 fs 工具的 diff hunk 精确计算（上下文行已剔除）
 - **实时活动 heartbeat（dsh 0.1.3-alpha.1）** —— 长时间回合流式输出期间，`agent/status` 状态切换与 `agent/assistant-stream` 事件流会以接近实时的节奏对当前文件发送 heartbeat，无需等待持久化结算事件
 - **限频 heartbeat** —— 每个项目每分钟最多 1 次，状态持久化到磁盘，多个 dsh 进程共享配额（持久化变更与实时活动共用同一配额）
@@ -115,6 +116,8 @@ brew install wakatime-cli
 - 每个项目每分钟最多发送一次 heartbeat（状态文件位于 `~/.wakatime/dsh-wakatime/`）；
   触发时机包括聊天活动、工具结果、已提交的模型结算（含 dsh 0.1.3-alpha.1 中无消息的 `assistant/attempt` 记录）、
   实时 agent 活动（`agent/status`、`agent/assistant-stream`）、turn 边界、会话销毁与插件卸载。
+- 项目目录从会话 header 的 cwd 开始，并跟随已提交的 `working-directory/change` 记录（dsh 0.2.1-alpha.2），
+  与 fs 工具实际解析所用的目录保持一致；每个目录各有独立的限频配额。
 - `--plugin` 标签形如 `Deepseek Harness[-<client>]/<dsh 版本> dsh-wakatime/<版本>`。
 
 ## 开发

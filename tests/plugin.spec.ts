@@ -85,6 +85,11 @@ function agentStreamChunk(sessionValue: Session): never {
   } as never
 }
 
+/** A committed working-directory transition (dsh 0.2.1-alpha.2). */
+function workingDirectoryChange(cwd: string): SessionEvent {
+  return { type: 'working-directory/change', seq: 9, time: Date.now(), data: { cwd } } as unknown as SessionEvent
+}
+
 /** A v2 `assistant/message` settlement with an embedded provider stream (dsh 0.1.3-alpha.1). */
 function assistantMessageWithStream(seq: number): SessionEvent {
   return {
@@ -215,6 +220,38 @@ describe('plugin wiring', () => {
     const args = spawnMock.mock.calls[0]![1] as string[]
     expect(args).toContain('/tmp/wk-project/d.ts')
     expect(args).toContain('--ai-line-changes')
+
+    await fiber.dispose()
+  })
+
+  it('follows the session working directory for project attribution (dsh 0.2.1-alpha.2)', async () => {
+    const ctx = new Context()
+    const fiber = await ctx.plugin({ name, Config, apply }, { debug: true, heartbeatIntervalMs: 60_000 })
+    spawnMock.mockReturnValue(autoClosingChild())
+
+    // The immutable header cwd is the project until something changes it.
+    ctx.emit('session/event', session, toolCall('r1', 'read', { file_path: '/tmp/wk-project/a.ts' }))
+    ctx.emit('session/event', session, toolResult('r1'))
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    let args = spawnMock.mock.calls[0]![1] as string[]
+    expect(args).toContain('--project-folder')
+    expect(args).toContain('/tmp/wk-project')
+
+    // A committed transition retargets the session (fs tools resolve against it).
+    ctx.emit('session/event', session, workingDirectoryChange('/tmp/wk-other'))
+
+    // A relative edit path now resolves against the new directory, reports it as
+    // the project folder, and draws on that project's own rate-limit budget.
+    ctx.emit('session/event', session, toolCall('e1', 'edit', { file_path: 'src/b.ts' }))
+    ctx.emit('session/event', session, toolResult('e1'))
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(spawnMock).toHaveBeenCalledTimes(2)
+    args = spawnMock.mock.calls[1]![1] as string[]
+    expect(args).toContain('--entity')
+    expect(args).toContain('/tmp/wk-other/src/b.ts')
+    expect(args).toContain('--project-folder')
+    expect(args).toContain('/tmp/wk-other')
 
     await fiber.dispose()
   })
